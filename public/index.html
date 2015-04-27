@@ -1,0 +1,668 @@
+
+<!DOCTYPE html>
+<html ng-app="syncedYoutubeApp">
+<head>
+    <title>Synced youtube</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+          
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/angularjs-toaster/0.4.12/toaster.min.css" />
+    
+    <style>
+        h1, h2, h3, h4 {
+            color: #C49E73;
+        }
+    
+        h2 {
+            font-size: 20px;
+        }
+        
+        .bordered {
+            border: 3px solid #252323;
+        }
+        
+        hr {
+          border-top: 1px dashed #927878;
+        }
+        
+        a, a:hover {
+            color: #C49E73;
+        }
+        
+        th {
+            background-color: #2A2A2A;
+        }
+        
+        body {
+            font-size: 12px;
+            color: #A387C9;
+            background-color: #373737;
+        }
+        
+        .table-bordered {
+            border: 0px dashed #7A6482;
+        }
+        
+        .table-bordered>tbody>tr>td, .table-bordered>tbody>tr>th, .table-bordered>tfoot>tr>td, .table-bordered>tfoot>tr>th, .table-bordered>thead>tr>td, .table-bordered>thead>tr>th {
+            border: 0px;
+            border-bottom: 1px dashed #7A6482;
+        }
+
+        .form-control {
+            color: #fff;
+            background-color: #2A2A2A;
+            outline: none;
+            border: none !important;
+            -webkit-box-shadow: none !important;
+            box-shadow: none !important;
+            -webkit-transition: none !important;
+            -o-transition: none !important;
+        }
+        
+        .btn-default {
+            color: #333;
+            background-color: #8F8F8F;
+            border-color: #9D9D9D;
+        }
+    </style>
+    
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.3.15/angular-animate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.12.1/ui-bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.12.1/ui-bootstrap-tpls.min.js"></script>
+    <script src="https://cdn.rawgit.com/Luegg/angularjs-scroll-glue/v2.0.4/src/scrollglue.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angularjs-toaster/0.4.12/toaster.min.js"></script>
+    <script src="https://cdn.socket.io/socket.io-1.3.5.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://cdn.rawgit.com/brandly/angular-youtube-embed/master/dist/angular-youtube-embed.min.js"></script>
+
+    <script>
+        angular.module('syncedYoutubeApp', ['ui.bootstrap', 'luegg.directives', 'toaster', 'youtube-embed']);
+                
+        angular.module('syncedYoutubeApp').directive('ngEnter', function () {
+            return function (scope, element, attrs) {
+                element.bind("keydown keypress", function (event) {
+                    if (event.which === 13) {
+                        scope.$apply(function (){
+                            scope.$eval(attrs.ngEnter);
+                        });
+
+                        event.preventDefault();
+                    }
+                });
+            };
+        });
+        
+        angular.module('syncedYoutubeApp').controller('mainController', ['$scope', '$http', '$window', 'toaster', '$interval', function ($scope, $http, $window, toaster, $interval) {
+
+            $scope.socket = null;
+            $scope.currentUser = {};
+            $scope.logged = false;
+            $scope.newMessageBody = "";
+            $scope.lastPlayerInfo = {
+                videoURL: '',
+                time: 0,
+                state: -1
+            };
+            $scope.newVideoURL = "";
+            $scope.users = [];
+            $scope.messages = [];
+            $scope.serverInfo = {};
+            $scope.lastPlayerTime = 0;
+            
+            $scope.playerVars = {
+                autoplay: 0,
+                controls: 0,
+                disablekb: 0,
+                rel: 0
+            };
+            
+            var timeChecker;
+            
+            $scope.updateIsTyping = function (isTyping) {
+                $scope.updatingIsTyping = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/users/updateIsTyping",
+                    params: {
+                        socketId: $scope.socket.id,
+                        isTyping: isTyping
+                    },
+                    data: {}
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.updatingIsTyping = false;
+                });
+            };
+            
+            $scope.$watch('newMessageBody', function(newValue, oldValue) {                        
+                if (oldValue.length == 0 && newValue.length > 0) {
+                    $scope.updateIsTyping(true);
+                } else if (oldValue.length > 0 && newValue.length == 0) {
+                    $scope.updateIsTyping(false);
+                }
+            }, true);
+            
+            $scope.submitMessage = function () {
+                if ($scope.newMessageBody == '') {
+                    return;
+                }
+            
+                $scope.sendingMessage = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/messages/submit",
+                    params: {
+                        socketId: $scope.socket.id,
+                        body: $scope.newMessageBody                       
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                    
+                    $scope.newMessageBody = "";
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.sendingMessage = false;
+                });
+            };
+            
+            $scope.connect = function () {
+                $scope.socket = io.connect();
+                
+                $scope.socket.on('connect', function() {                    
+                    $scope.logged = true;
+                    
+                    $scope.fetchMessages();
+                    $scope.fetchPlayerInfo();
+                                       
+                    $scope.socket.on("welcome", function(user) {
+                        $scope.currentUser = user;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userBroadcastsMessage", function(message) {
+                        $scope.messages.push(message);
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userClearedMessages", function(data) {                   
+                        $scope.messages.length = 0;
+                        $scope.messages.push(data.message);
+                        
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userConnected", function(data) {
+                        $scope.messages.push(data.message);
+                        
+                        $scope.users = data.users;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userChangedName", function(data) {
+                        $scope.messages.push(data.message);
+                        
+                        $scope.users = data.users;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userUpdatedIsTyping", function(data) {
+                        $scope.users = data.users;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userDisconnected", function(data) {
+                        $scope.messages.push(data.message);
+                        
+                        $scope.users = data.users;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userChangedVideoURL", function(data) {
+                        $scope.messages.push(data.message);
+
+                        $scope.lastPlayerInfo = data.player;
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userChangedPlayerState", function(data) {
+                        $scope.messages.push(data.message);
+                        $scope.users = data.users;
+
+                        $scope.$apply()
+                    });
+                    
+                    $scope.socket.on("userSentCommand", function(data) {
+                        $scope.messages.push(data.message);
+                       
+                        $scope.lastPlayerInfo = data.player;
+                       
+                        $scope.player.seekTo(data.player.time);
+
+                        switch (data.player.state) {
+                            case 1: $scope.player.playVideo(); break;
+                            case 2: $scope.player.pauseVideo(); break;
+                        }
+
+                        $scope.$apply()
+                    });
+                });
+                
+                $scope.socket.on('connect_error', function() {
+                });
+            };
+            
+            $scope.fetchUsers = function () {
+                $scope.fetchingUsers = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/users/list",
+                    params: {
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                    
+                    $scope.users = response.users;
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.fetchingUsers = false;
+                });
+            };
+            
+            $scope.fetchMessages = function () {
+                $scope.fetchingMessages = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/messages/list",
+                    params: {
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                    
+                    $scope.messages = response.messages;
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.fetchingMessages = false;
+                });
+            };
+            
+            $scope.clearMessages = function () {
+                $scope.clearingMessages = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/messages/clear",
+                    params: {
+                        socketId: $scope.socket.id
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.clearingMessages = false;
+                });
+            };
+            
+            $scope.changeName = function () {
+                $scope.changingName = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/users/rename",
+                    params: {
+                        socketId: $scope.socket.id,
+                        username: $scope.currentUser.newUsername
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                    
+                    $scope.currentUser.username = $scope.currentUser.newUsername;
+                    $scope.currentUser.newUsername = "";
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.changingName = false;
+                });
+            };
+            
+            $scope.changeVideoURL = function () {
+                $scope.changingVideoURL = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/player/setVideo",
+                    params: {
+                        socketId: $scope.socket.id,
+                        videoURL: $scope.newVideoURL
+                    },
+                    data: {
+                    }
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                    
+                    $scope.lastPlayerInfo = response.player;
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.changingVideoURL = false;
+                });
+            };
+            
+            $scope.fetchPlayerInfo = function () {
+                $scope.fetchingPlayerInfo = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/player/info",
+                    params: {},
+                    data: {}
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                                       
+                    $scope.lastPlayerInfo = response.player;
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.fetchingPlayerInfo = false;
+                });
+            };
+            
+            $scope.submitPlayerState = function () {
+                $scope.sendingPlayerState = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/player/submitState",
+                    params: {
+                        socketId: $scope.socket.id,
+                        time: $scope.player.getCurrentTime(),
+                        state: $scope.player.getPlayerState()
+                    },
+                    data: {}
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.sendingPlayerState = false;
+                });
+            };
+            
+            $scope.$on('youtube.player.buffering', function ($event, player) {
+                //$scope.submitPlayerState();
+            });
+            
+            $scope.$on('youtube.player.paused', function ($event, player) {
+                $scope.submitPlayerState();
+            });
+            
+            $scope.$on('youtube.player.playing', function ($event, player) {
+                $scope.submitPlayerState();
+            });
+            
+            $scope.$on('youtube.player.ready', function ($event, player) {
+                
+                // Watch for time jumps
+                /*timeChecker = $interval(function() {
+                    if (Math.abs($scope.player.getCurrentTime() - $scope.lastPlayerTime) > 2) {
+                        console.log("detected a time jump");
+                        $scope.submitPlayerState()
+                    }
+                    
+                    $scope.lastPlayerTime = $scope.player.getCurrentTime();
+                }, 500);*/
+                
+                // Use last player info
+                $scope.player.seekTo($scope.lastPlayerInfo.time);
+                
+                if ($scope.lastPlayerInfo.state == 1) {
+                    $scope.player.playVideo();
+                } else if ($scope.lastPlayerInfo.state == 2) {
+                    $scope.player.pauseVideo();
+                }
+                
+                $scope.player.pauseVideo();
+            });
+            
+            $scope.submitCommand = function(state, time) {
+                $scope.sendingCommand = true;
+                
+                var httpRequest = $http({
+                    method: "get",
+                    url: "/api/player/submitCommand",
+                    params: {
+                        socketId: $scope.socket.id,
+                        time: $scope.player.getCurrentTime() + time,
+                        state: state
+                    },
+                    data: {}
+                });
+                
+                httpRequest.success(function(response) {
+                
+                    if (response.error) {
+                        toaster.pop('error', "", response.message);
+                        return;
+                    }
+                });
+                
+                httpRequest['finally'](function() {
+                    $scope.sendingCommand = false;
+                });
+            };
+            
+            $scope.connect();
+        }]);
+    </script>
+</head>
+
+<body>
+    <div class="container" ng-controller="mainController">
+        <div class="row">
+            <div class="col-md-6">
+                <h1>Synced youtube player</h1>
+                <p>
+                    Watch a youtube video with your friends at the same time.<br />
+                    The code is available at <a href="https://github.com/germanger/synced-youtube" target="_blank">GitHub</a>
+                </p>
+            </div>
+            <div class="col-md-6">
+                <h2>Change your name ({{currentUser.username}})</h2>
+                <form class="form-inline" style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <input type="text" class="form-control input-sm" ng-model="currentUser.newUsername" placeholder="New name" />
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">Set</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Messages ({{messages.length}})</h2>
+                <div class="bordered" style="height: 200px; overflow-y: scroll" scroll-glue>
+                    <table class="table table-bordered table-condensed">
+                        <tr ng-repeat="message in messages">
+                            <td>
+                                <div ng-switch="message.messageType">
+                                    <div ng-switch-when="userBroadcastsMessage">
+                                        <strong>{{message.user.username || message.user.userId}}</strong> says:<br />
+                                        <p>{{message.chatMessage.body}}</p>
+                                    </div>
+                                    <div ng-switch-when="userConnected">
+                                        <strong style="color: #FFAF99">{{message.user.username}} connected</strong>
+                                    </div>
+                                    <div ng-switch-when="userDisconnected">
+                                        <strong style="color: #FFAF99">{{message.user.username}} disconnected</strong>
+                                    </div>
+                                    <div ng-switch-when="userChangedName">
+                                        <strong style="color: #FFAF99">{{message.data.oldUsername}} is now {{message.data.newUsername}}</strong>
+                                    </div>
+                                    <div ng-switch-when="userChangedVideoURL">
+                                        <strong style="color: #FFAF99">{{message.user.username}} changed video URL</strong>
+                                    </div>
+                                    <div ng-switch-when="userChangedPlayerState">
+                                        <strong style="color: #FFAF99">{{message.user.username}}'s player new state: {{message.user.playerState == 2 ? "Paused" : message.user.playerState == 1 ? "Playing" : "" }}</strong>
+                                    </div>
+                                    <div ng-switch-when="userSentCommand">
+                                        <strong style="color: #FFAF99">{{message.user.username}} sent a command: {{message.player.state == 2 ? "Pause" : "Play"}} (at: {{message.player.time}} seconds)</strong>
+                                    </div>
+                                    <div ng-switch-when="userClearedMessages">
+                                        <strong style="color: #FFAF99">{{message.user.username}} cleared messages</strong>
+                                    </div>
+                                </div>
+                                <!--<span class="pull-right" title="{{message.timestamp | date: 'yyyy-MM-dd'}}">{{message.timestamp | date: 'hh:mm:ss a'}}</span>-->
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <form style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <textarea style="resize: vertical;" rows="3" class="form-control bordered" ng-model="newMessageBody" ng-enter="submitMessage()" placeholder="Write something..."></textarea>
+                    </div>
+                </form>
+                <form class="form-inline" ng-show="logged">
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitMessage()" ng-disabled="sendingMessage">Send</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="clearMessages()" ng-disabled="clearingMessages">Clear messages</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <h2>Player</h2>
+                <div style="pointer-events: none; cursor: not-allowed" popover="Use the controls below" popover-trigger="mouseenter">
+                    <youtube-video video-url="lastPlayerInfo.videoURL" player="player" player-vars="playerVars" player-width="'100%'" player-height="'300px'"></youtube-video>
+                </div>
+                                
+                <form class="form-inline" style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 1"><span class="glyphicon glyphicon-play" /></button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(2, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 2"><span class="glyphicon glyphicon-pause" /></button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, -5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-backward" /> 3 secs</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-forward" /> 3 secs</button>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-control input-sm" ng-model="newVideoURL" placeholder="Paste Youtube URL" />
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="changeVideoURL()" ng-disabled="newVideoURL == '' || changingVideoURL">Change video</button>
+                    </div>
+                </form>
+			</div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Users ({{users.length}})</h2>
+                <div class="bordered" style="height: 200px; overflow-y: scroll">
+                    <table class="table table-bordered table-condensed">
+                        <tr>
+                            <th>userId</th>
+                            <th>username</th>
+                            <th>player state</th>
+                            <th>chat</th>
+                        </tr>
+                        <tr ng-repeat="user in users">
+                            <td>{{user.userId}}</td>
+                            <td>{{user.username}}</td>
+                            <td>{{user.playerState}}</td>
+                            <td><span ng-show="user.isTyping">typing...</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <hr />
+        <p style="text-align: center;">Developed by <a href="http://www.manger.cl" targer="_blank">manger.cl</a></p>
+        
+        <toaster-container toaster-options="{'time-out': 3000, 'close-button': true, 'position-class': 'toast-bottom-right'}"></toaster-container>
+    </div>
+
+</body>
+</html>
