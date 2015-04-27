@@ -36,7 +36,7 @@
         
         body {
             font-size: 12px;
-            color: #A387C9;
+            color: #D5B3E5;
             background-color: #373737;
         }
         
@@ -650,7 +650,7 @@
                         <tr ng-repeat="user in users">
                             <td>{{user.userId}}</td>
                             <td>{{user.username}}</td>
-                            <td>{{user.playerState}}</td>
+                            <td>{{user.playerState == 2 ? "Paused" : user.playerState == 1 ? "Playing" : "" }}</td>
                             <td><span ng-show="user.isTyping">typing...</span></td>
                         </tr>
                     </table>
