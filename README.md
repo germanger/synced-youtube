@@ -10,7 +10,7 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 - Express
 - socket.io
 
-### Routes:
+### Routes
 
 - `'/'` : Endpoint for connecting to the socket.io server
 - `'/'` : Also returns `index.html` (angular app)
@@ -40,4 +40,6 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 ## TO-DOs
 
 - Rooms ( eg. url/EkCjH9vG )
-- Player timeline
+- Player's timeline control
+- Player's volume control
+- Player's currentTime/totalTime indicator
