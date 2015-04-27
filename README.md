@@ -39,6 +39,7 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 
 ## TO-DOs
 
+- Consider the "buffering" state
 - Rooms ( eg. url/EkCjH9vG )
 - Player's timeline control
 - Player's volume control
