@@ -36,3 +36,8 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 - scrollglue (scroll to bottom of divs)
 - Youtube player API ("iframe_api")
 - angular-youtube-embed (angular directive for iframe_api)
+
+## TO-DOs
+
+- Rooms ( eg. url/EkCjH9vG )
+- Player timeline
