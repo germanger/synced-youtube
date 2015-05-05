@@ -7,6 +7,7 @@ var bodyParser = require('body-parser');
 var shortid = require('shortid');
 var server = http.createServer(app);
 var shared = require('./shared');
+var _ = require('underscore');
 
 // A default engine is required, even though we render plain html
 app.set('views', './public');
@@ -16,15 +17,36 @@ app.set('view engine', 'ejs');
 shared.io = require('socket.io').listen(server);
 
 shared.io.sockets.on('connection', function (socket) {
+    var roomId = socket.handshake.query.roomId;
+    
+    if (!(roomId in shared.rooms)) {
+
+        // new room
+        roomId = shortid.generate();
+        shared.rooms[roomId] = {
+            roomId: roomId,
+            messages: [],
+            player: {
+                time: 0,
+                playerState: 2,
+                videoURL: 'https://www.youtube.com/watch?v=HSVnVJrTDGM'
+            }
+        };
+    }
+    
+    socket.join(roomId);
+    
+    // new user
     var userId = shortid.generate();
     
     var user = {
+        roomId: roomId,
         userId: userId,
         socketId: socket.id,
         username: userId,
     };
-    
-    shared.users.push(user);
+
+    shared.users[socket.id] = user;
     
     // Log
     var message = {
@@ -36,44 +58,57 @@ shared.io.sockets.on('connection', function (socket) {
         }
     };
     
-    shared.messages.push(message);
+    shared.rooms[roomId].messages.push(message);
     
     // Respond to him
-    socket.emit('welcome', user);
+    socket.emit('welcome', {
+        user: user,
+        roomId: roomId
+    });
 
     // Broadcast
-    shared.io.sockets.emit('userConnected', {
-        users: shared.users,
+    shared.io.to(roomId).emit('userConnected', {
+        users: _.chain(shared.users)
+        .where({ roomId: roomId })
+        .map(function (user) {
+            return {
+                userId: user.userId,
+                username: user.username,
+                playerState: user.playerState
+            }
+        }),
         message: message
     });
     
     socket.on('disconnect', function() {
-        for (var i = 0; i < shared.users.length; i++) {
-            if (shared.users[i].socketId == socket.id) {               
-                
-                var user = shared.users[i];
-                
-                shared.users.splice(i, 1);
-                
-                // Log
-                var message = {
-                    messageType: 'userDisconnected',
-                    timestamp: new Date(),
-                    user: {
-                        userId: user.userId,
-                        username: user.username
-                    }
-                };
-                
-                shared.messages.push(message);
-                
-                // Broadcast
-                shared.io.sockets.emit('userDisconnected', {
-                    users: shared.users,
-                    message: message
-                });
+        
+        delete shared.users[socket.id];        
+       
+        // Log
+        var message = {
+            messageType: 'userDisconnected',
+            timestamp: new Date(),
+            user: {
+                userId: user.userId,
+                username: user.username
             }
-        }
+        };
+        
+        shared.rooms[roomId].messages.push(message);
+        
+        // Broadcast
+        shared.io.to(roomId).emit('userDisconnected', {
+            users: _.chain(shared.users)
+            .where({ roomId: roomId })
+            .map(function (user) {
+                return {
+                    userId: user.userId,
+                    username: user.username,
+                    playerState: user.playerState
+                }
+            }),
+            message: message
+        });
     });
 });
 
@@ -96,13 +131,9 @@ app.use('/', logger('dev'));
 app.use('/api/', function(req, res, next) {
 
     res.user = undefined;
-    
+       
     if (req.query.socketId != null) {
-        for (var i = 0; i < shared.users.length; i++) {
-            if (shared.users[i].socketId == req.query.socketId) {
-                res.user = shared.users[i];
-            }
-        }
+        res.user = shared.users[req.query.socketId];
     }
 
     next();

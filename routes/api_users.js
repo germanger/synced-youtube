@@ -1,4 +1,5 @@
 var express = require('express');
+var _ = require('underscore');
 var shared = require('../shared');
 
 var router = express.Router();
@@ -40,11 +41,20 @@ router.get('/rename', function(req, res) {
         }
     };
     
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
     
     // Broadcast
-    shared.io.sockets.emit('userChangedName', {
-        users: shared.users,
+    shared.io.to(res.user.roomId).emit('userChangedName', {
+        users: _.chain(shared.users)
+        .where({ roomId: res.user.roomId })
+        .map(function (user) {
+            return {
+                userId: user.userId,
+                username: user.username,
+                playerState: user.playerState,
+                isTyping: user.isTyping
+            }
+        }),
         message: message
     });
 
@@ -68,8 +78,17 @@ router.get('/updateIsTyping', function(req, res) {
     res.user.isTyping = JSON.parse(req.query.isTyping);
        
     // Broadcast
-    shared.io.sockets.emit('userUpdatedIsTyping', {
-        users: shared.users,
+    shared.io.to(res.user.roomId).emit('userUpdatedIsTyping', {
+        users: _.chain(shared.users)
+        .where({ roomId: res.user.roomId })
+        .map(function (user) {
+            return {
+                userId: user.userId,
+                username: user.username,
+                playerState: user.playerState,
+                isTyping: user.isTyping
+            }
+        }),
     });
 
     res.json({
@@ -80,19 +99,27 @@ router.get('/updateIsTyping', function(req, res) {
 
 router.get('/list', function(req, res) {
 
-    var users = [];
-    
-    for (i = 0; i < shared.users.length; i++) {
-        users.push({
-            userId: shared.users[i].userId,
-            username: shared.users[i].username,
-            playerState: shared.users[i].playerSate
+    if (!res.user) {
+        res.json({
+            error: true,
+            message: 'socketId not found in list of users'
         });
+        
+        return;
     }
     
     res.json({
         error: false,
-        users: users
+        users: _.chain(shared.users)
+        .where({ roomId: res.user.roomId })
+        .map(function (user) {
+            return {
+                userId: user.userId,
+                username: user.username,
+                playerState: user.playerState,
+                isTyping: user.isTyping
+            }
+        }),
     });
 });
 

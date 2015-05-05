@@ -1,12 +1,23 @@
 var express = require('express');
+var _ = require('underscore');
 var shared = require('../shared');
 
 var router = express.Router();
 
 router.get('/info', function(req, res) {
+
+    if (!res.user) {
+        res.json({
+            error: true,
+            message: 'socketId not found in list of users'
+        });
+        
+        return;
+    }
+
     res.json({
         error: false,
-        player: shared.player
+        player: shared.rooms[res.user.roomId].player
     });
 });
 
@@ -21,9 +32,9 @@ router.get('/setVideo', function(req, res) {
         return;
     }
     
-    shared.player.videoURL = req.query.videoURL;
-    shared.player.state = -1;
-    shared.player.time = 0;
+    shared.rooms[res.user.roomId].player.videoURL = req.query.videoURL;
+    shared.rooms[res.user.roomId].player.state = -1;
+    shared.rooms[res.user.roomId].player.time = 0;
     
     // Log
     var message = {
@@ -35,11 +46,11 @@ router.get('/setVideo', function(req, res) {
         }
     };
     
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
 
     // Broadcast
-    shared.io.sockets.emit('userChangedVideoURL', {
-        player: shared.player,
+    shared.io.to(res.user.roomId).emit('userChangedVideoURL', {
+        player: shared.rooms[res.user.roomId].player,
         message: message
     });
     
@@ -72,11 +83,20 @@ router.get('/submitState', function(req, res) {
         }
     };
     
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
 
     // Broadcast
-    shared.io.sockets.emit('userChangedPlayerState', {
-        users: shared.users,
+    shared.io.to(res.user.roomId).emit('userChangedPlayerState', {
+        users: _.chain(shared.users)
+        .where({ roomId: res.user.roomId })
+        .map(function (user) {
+            return {
+                userId: user.userId,
+                username: user.username,
+                playerState: user.playerState,
+                isTyping: user.isTyping
+            }
+        }),
         message: message
     });
     
@@ -96,8 +116,8 @@ router.get('/submitCommand', function(req, res) {
         return;
     }
     
-    shared.player.time = req.query.time;
-    shared.player.state = parseInt(req.query.state);
+    shared.rooms[res.user.roomId].player.time = req.query.time;
+    shared.rooms[res.user.roomId].player.state = parseInt(req.query.state);
        
     // Log
     var message = {
@@ -107,14 +127,14 @@ router.get('/submitCommand', function(req, res) {
             userId: res.user.userId,
             username: res.user.username
         },
-        player: shared.player
+        player: shared.rooms[res.user.roomId].player
     };
     
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
 
     // Broadcast
-    shared.io.sockets.emit('userSentCommand', {
-        player: shared.player,
+    shared.io.to(res.user.roomId).emit('userSentCommand', {
+        player: shared.rooms[res.user.roomId].player,
         message: message
     });
     

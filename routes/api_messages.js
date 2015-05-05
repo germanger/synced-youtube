@@ -1,13 +1,23 @@
 var express = require('express');
+var _ = require('underscore');
 var shared = require('../shared');
 
 var router = express.Router();
 
 router.get('/list', function(req, res) {
 
+    if (!res.user) {
+        res.json({
+            error: true,
+            message: 'socketId not found in list of users'
+        });
+        
+        return;
+    }
+
     res.json({
         error: false,
-        messages: shared.messages
+        messages: shared.rooms[res.user.roomId].messages
     });
 });
 
@@ -36,10 +46,10 @@ router.get('/submit', function(req, res) {
     };
 
     // Save the new message
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
     
     // Broadcast the new message
-    shared.io.sockets.emit('userBroadcastsMessage', message);
+    shared.io.to(res.user.roomId).emit('userBroadcastsMessage', message);
 
     res.json({
         error: false
@@ -58,7 +68,7 @@ router.get('/clear', function(req, res) {
     }
 
     // Clear messages
-    shared.messages.length = 0;
+    shared.rooms[res.user.roomId].messages.length = 0;
     
     // Log
     var message = {
@@ -70,10 +80,10 @@ router.get('/clear', function(req, res) {
         }
     };
     
-    shared.messages.push(message);
+    shared.rooms[res.user.roomId].messages.push(message);
 
     // Broadcast
-    shared.io.sockets.emit('userClearedMessages', {
+    shared.io.to(res.user.roomId).emit('userClearedMessages', {
         message: message
     });
 

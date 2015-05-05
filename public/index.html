@@ -49,7 +49,7 @@
             border-bottom: 1px dashed #7A6482;
         }
 
-        .form-control {
+        .form-control, .form-control[readonly] {
             color: #fff;
             background-color: #2A2A2A;
             outline: none;
@@ -94,8 +94,9 @@
             };
         });
         
-        angular.module('syncedYoutubeApp').controller('mainController', ['$scope', '$http', '$window', 'toaster', '$interval', function ($scope, $http, $window, toaster, $interval) {
+        angular.module('syncedYoutubeApp').controller('mainController', ['$scope', '$http', '$window', 'toaster', '$interval', '$location', function ($scope, $http, $window, toaster, $interval, $location) {
 
+            $scope.url = "";
             $scope.socket = null;
             $scope.currentUser = {};
             $scope.logged = false;
@@ -188,16 +189,20 @@
             };
             
             $scope.connect = function () {
-                $scope.socket = io.connect();
+                $scope.socket = io.connect({ query: "roomId=" + $location.search().roomId });
                 
-                $scope.socket.on('connect', function() {                    
+                $scope.socket.on('connect', function() {
                     $scope.logged = true;
+                                                          
+                    $scope.socket.on("welcome", function(data) {
+                        $location.search('roomId', data.roomId);
+                        $scope.url = $location.absUrl();
+                        
+                        $scope.fetchUsers();
+                        $scope.fetchMessages();
+                        $scope.fetchPlayerInfo();
                     
-                    $scope.fetchMessages();
-                    $scope.fetchPlayerInfo();
-                                       
-                    $scope.socket.on("welcome", function(user) {
-                        $scope.currentUser = user;
+                        $scope.currentUser = data.user;
                         $scope.$apply()
                     });
                     
@@ -247,7 +252,7 @@
                     });
                     
                     $scope.socket.on("userChangedPlayerState", function(data) {
-                        $scope.messages.push(data.message);
+                        //$scope.messages.push(data.message);
                         $scope.users = data.users;
 
                         $scope.$apply()
@@ -280,6 +285,7 @@
                     method: "get",
                     url: "/api/users/list",
                     params: {
+                        socketId: $scope.socket.id,
                     },
                     data: {
                     }
@@ -307,6 +313,7 @@
                     method: "get",
                     url: "/api/messages/list",
                     params: {
+                        socketId: $scope.socket.id
                     },
                     data: {
                     }
@@ -418,7 +425,9 @@
                 var httpRequest = $http({
                     method: "get",
                     url: "/api/player/info",
-                    params: {},
+                    params: {
+                        socketId: $scope.socket.id
+                    },
                     data: {}
                 });
                 
@@ -525,7 +534,7 @@
                 httpRequest['finally'](function() {
                     $scope.sendingCommand = false;
                 });
-            };
+            };           
             
             $scope.connect();
         }]);
@@ -550,6 +559,13 @@
                     </div>
                     <div class="form-group">
                         <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">Set</button>
+                    </div>
+                </form>
+                
+                <h2>Invite to this room</h2>
+                <form style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <input type="text" class="form-control input-sm" ng-model="url" ng-readonly="true" />
                     </div>
                 </form>
             </div>
@@ -583,7 +599,7 @@
                                         <strong style="color: #FFAF99">{{message.user.username}}'s player new state: {{message.user.playerState == 2 ? "Paused" : message.user.playerState == 1 ? "Playing" : "" }}</strong>
                                     </div>
                                     <div ng-switch-when="userSentCommand">
-                                        <strong style="color: #FFAF99">{{message.user.username}} sent a command: {{message.player.state == 2 ? "Pause" : "Play"}} (at: {{message.player.time}} seconds)</strong>
+                                        <strong style="color: #FFAF99">{{message.user.username}} pressed {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
                                     </div>
                                     <div ng-switch-when="userClearedMessages">
                                         <strong style="color: #FFAF99">{{message.user.username}} cleared messages</strong>
@@ -645,7 +661,7 @@
                             <th>userId</th>
                             <th>username</th>
                             <th>player state</th>
-                            <th>chat</th>
+                            <th style="width: 70px">chat</th>
                         </tr>
                         <tr ng-repeat="user in users">
                             <td>{{user.userId}}</td>
