@@ -14,13 +14,13 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 
 - `'/'` : Endpoint for connecting to the socket.io server
 - `'/'` : Also returns `index.html` (angular app)
-- `'/api/users/list'` : List of connected users
+- `'/api/users/list'` : Expects a `socketId`. Returns list of the users in the current room.
 - `'/api/users/rename'` : Expects a `socketId` and a `username`
 - `'/api/users/updateIsTyping'` : Expects a `socketId` and a `isTyping`
-- `'/api/messages/list'` : List of messages
+- `'/api/messages/list'` : Expects a `socketId`. List of messages in the current room.
 - `'/api/messages/submit'` : Expects a `socketId` parameter and a `body` parameter
 - `'/api/messages/clear'` : Expects a `socketId`. Clears all messages.
-- `'/api/player/info'` : Player info (current video, time and state)
+- `'/api/player/info'` : Expects a `socketId`. Gets the current room player info (current video, time and state)
 - `'/api/player/setVideo'` : Expects a `socketId` and a `videoURL`
 - `'/api/player/submitState'` : Expects a `socketId` and a `state`
 - `'/api/player/submitCommand'` : Expects a `socketId`, a `state`, and a `time`
@@ -40,7 +40,6 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 ## TO-DOs
 
 - Consider the "buffering" state
-- Rooms ( eg. url/EkCjH9vG )
 - Player's timeline control
 - Player's volume control
 - Player's currentTime/totalTime indicator
