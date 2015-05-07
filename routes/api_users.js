@@ -4,15 +4,10 @@ var shared = require('../shared');
 
 var router = express.Router();
 
-router.get('/rename', function(req, res) {
+router.get('/rename', function(req, res, next) {
 
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     if (req.query.username == '') {
@@ -64,15 +59,10 @@ router.get('/rename', function(req, res) {
     });
 });
 
-router.get('/updateIsTyping', function(req, res) {
+router.get('/updateIsTyping', function(req, res, next) {
 
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     res.user.isTyping = JSON.parse(req.query.isTyping);
@@ -97,15 +87,10 @@ router.get('/updateIsTyping', function(req, res) {
     });
 });
 
-router.get('/list', function(req, res) {
+router.get('/list', function(req, res, next) {
 
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     res.json({

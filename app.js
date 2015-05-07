@@ -82,7 +82,7 @@ shared.io.sockets.on('connection', function (socket) {
     
     socket.on('disconnect', function() {
         
-        delete shared.users[socket.id];        
+        delete shared.users[socket.id];
        
         // Log
         var message = {
@@ -147,6 +147,7 @@ app.use('/api/player', require('./routes/api_player'));
 app.use('/api/server', require('./routes/api_server'));
 
 // development error handler will print stacktrace
+/*
 if (app.get('env') === 'development') {
     app.use(function(err, req, res, next) {
         res.status(err.status || 500);
@@ -157,10 +158,12 @@ if (app.get('env') === 'development') {
         });
     });
 }
+*/
 
 // production error handler (no stacktraces leaked to user)
 app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
+    //res.status(err.status || 500);
+    res.status(200);
     
     res.json({
         error: true,

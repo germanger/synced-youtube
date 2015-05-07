@@ -4,15 +4,10 @@ var shared = require('../shared');
 
 var router = express.Router();
 
-router.get('/info', function(req, res) {
+router.get('/info', function(req, res, next) {
 
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
 
     res.json({
@@ -21,15 +16,10 @@ router.get('/info', function(req, res) {
     });
 });
 
-router.get('/setVideo', function(req, res) {
+router.get('/setVideo', function(req, res, next) {
     
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     shared.rooms[res.user.roomId].player.videoURL = req.query.videoURL;
@@ -59,15 +49,10 @@ router.get('/setVideo', function(req, res) {
     });
 });
 
-router.get('/submitState', function(req, res) {
+router.get('/submitState', function(req, res, next) {
     
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     res.user.playerState = parseInt(req.query.state);
@@ -105,15 +90,10 @@ router.get('/submitState', function(req, res) {
     });
 });
 
-router.get('/submitCommand', function(req, res) {
+router.get('/submitCommand', function(req, res, next) {
     
     if (!res.user) {
-        res.json({
-            error: true,
-            message: 'socketId not found in list of users'
-        });
-        
-        return;
+        return next(new Error('socketId not found in list of users'));
     }
     
     shared.rooms[res.user.roomId].player.time = req.query.time;
