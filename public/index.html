@@ -65,6 +65,23 @@
             background-color: #8F8F8F;
             border-color: #9D9D9D;
         }
+        
+        .nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover {
+            color: #ffffff;
+            cursor: default;
+            background-color: #373737;
+            border: 1px solid #ddd;
+            border-bottom-color: transparent;
+        }
+        
+        .nav>li>a:focus, .nav>li>a:hover {
+            text-decoration: none;
+            background-color: #373737;
+        }
+        
+        .nav-tabs>li>a {
+            border: 0px;
+        }
     </style>
     
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
@@ -106,9 +123,14 @@
                 time: 0,
                 state: -1
             };
-            $scope.newVideoURL = "";
+            $scope.forms = {
+                newVideoURL: "",
+                searchQuery: ""
+            }
+            
             $scope.users = [];
             $scope.messages = [];
+            $scope.foundVideos = [];
             $scope.serverInfo = {};
             $scope.lastPlayerTime = 0;
             
@@ -120,6 +142,35 @@
             };
             
             var timeChecker;
+            
+            $scope.searchVideos = function () {
+                $scope.searchingVideos = true;
+                $scope.foundVideos.length = 0;
+
+                var httpRequest = $http({
+                    method: 'get',
+                    url: "https://www.googleapis.com/youtube/v3/search",
+                    params: {
+                        key: "AIzaSyAWtrl9YM--THEXoEhkFCsE-kqCDJPG94M",
+                        part: "snippet,id",
+                        q: $scope.forms.searchQuery
+                    },
+                });
+
+                httpRequest.success(function (response) {                    
+                    for (var i = 0; i < response.items.length; i++) {
+                        $scope.foundVideos.push(response.items[i]);
+                    }
+                });
+                
+                httpRequest.error(function (response) {
+                    toaster.pop('error', "", response.error.message);
+                });
+
+                httpRequest['finally'](function () {
+                    $scope.searchingVideos = false;
+                });
+            };
             
             $scope.updateIsTyping = function (isTyping) {
                 $scope.updatingIsTyping = true;
@@ -247,7 +298,7 @@
                     $scope.socket.on("userChangedVideoURL", function(data) {
                         $scope.messages.push(data.message);
 
-                        $scope.lastPlayerInfo = data.player;
+                        angular.extend($scope.lastPlayerInfo, data.player);
                         $scope.$apply()
                     });
                     
@@ -261,7 +312,7 @@
                     $scope.socket.on("userSentCommand", function(data) {
                         $scope.messages.push(data.message);
                        
-                        $scope.lastPlayerInfo = data.player;
+                        angular.extend($scope.lastPlayerInfo, data.player);
                        
                         $scope.player.seekTo(data.player.time);
 
@@ -390,7 +441,7 @@
                 });
             };
             
-            $scope.changeVideoURL = function () {
+            $scope.changeVideoURL = function (newVideoURL) {
                 $scope.changingVideoURL = true;
                 
                 var httpRequest = $http({
@@ -398,7 +449,7 @@
                     url: "/api/player/setVideo",
                     params: {
                         socketId: $scope.socket.id,
-                        videoURL: $scope.newVideoURL
+                        videoURL: newVideoURL || $scope.forms.newVideoURL
                     },
                     data: {
                     }
@@ -411,7 +462,7 @@
                         return;
                     }
                     
-                    $scope.lastPlayerInfo = response.player;
+                    angular.extend($scope.lastPlayerInfo, response.player);
                 });
                 
                 httpRequest['finally'](function() {
@@ -438,7 +489,7 @@
                         return;
                     }
                                        
-                    $scope.lastPlayerInfo = response.player;
+                    angular.extend($scope.lastPlayerInfo, response.player);
                 });
                 
                 httpRequest['finally'](function() {
@@ -498,6 +549,7 @@
                 }, 500);*/
                 
                 // Use last player info
+                console.log($scope.lastPlayerInfo);
                 $scope.player.seekTo($scope.lastPlayerInfo.time);
                 
                 if ($scope.lastPlayerInfo.state == 1) {
@@ -505,8 +557,6 @@
                 } else if ($scope.lastPlayerInfo.state == 2) {
                     $scope.player.pauseVideo();
                 }
-                
-                $scope.player.pauseVideo();
             });
             
             $scope.submitCommand = function(state, time) {
@@ -550,29 +600,7 @@
                     Watch a youtube video with your friends at the same time.<br />
                     The code is available at <a href="https://github.com/germanger/synced-youtube" target="_blank">GitHub</a>
                 </p>
-            </div>
-            <div class="col-md-6">
-                <h2>Change your name ({{currentUser.username}})</h2>
-                <form class="form-inline" style="margin-top: 15px" ng-show="logged">
-                    <div class="form-group">
-                        <input type="text" class="form-control input-sm" ng-model="currentUser.newUsername" placeholder="New name" />
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">Set</button>
-                    </div>
-                </form>
                 
-                <h2>Invite to this room</h2>
-                <form style="margin-top: 15px" ng-show="logged">
-                    <div class="form-group">
-                        <input type="text" class="form-control input-sm" ng-model="url" ng-readonly="true" />
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-6">
                 <h2>Messages ({{messages.length}})</h2>
                 <div class="bordered" style="height: 200px; overflow-y: scroll" scroll-glue>
                     <table class="table table-bordered table-condensed">
@@ -595,17 +623,16 @@
                                     <div ng-switch-when="userChangedVideoURL">
                                         <strong style="color: #FFAF99">{{message.user.username}} changed video URL</strong>
                                     </div>
-                                    <div ng-switch-when="userChangedPlayerState">
+                                    <!--<div ng-switch-when="userChangedPlayerState">
                                         <strong style="color: #FFAF99">{{message.user.username}}'s player new state: {{message.user.playerState == 2 ? "Paused" : message.user.playerState == 1 ? "Playing" : "" }}</strong>
-                                    </div>
+                                    </div>-->
                                     <div ng-switch-when="userSentCommand">
-                                        <strong style="color: #FFAF99">{{message.user.username}} pressed {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
+                                        <strong style="color: #FFAF99">{{message.user.username}} clicked {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
                                     </div>
                                     <div ng-switch-when="userClearedMessages">
                                         <strong style="color: #FFAF99">{{message.user.username}} cleared messages</strong>
                                     </div>
                                 </div>
-                                <!--<span class="pull-right" title="{{message.timestamp | date: 'yyyy-MM-dd'}}">{{message.timestamp | date: 'hh:mm:ss a'}}</span>-->
                             </td>
                         </tr>
                     </table>
@@ -623,38 +650,7 @@
                         <button class="btn btn-default btn-sm" ng-click="clearMessages()" ng-disabled="clearingMessages">Clear messages</button>
                     </div>
                 </form>
-            </div>
-            <div class="col-md-6">
-                <h2>Player</h2>
-                <div style="pointer-events: none; cursor: not-allowed" popover="Use the controls below" popover-trigger="mouseenter">
-                    <youtube-video video-url="lastPlayerInfo.videoURL" player="player" player-vars="playerVars" player-width="'100%'" player-height="'300px'"></youtube-video>
-                </div>
-                                
-                <form class="form-inline" style="margin-top: 15px" ng-show="logged">
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 1"><span class="glyphicon glyphicon-play" /></button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="submitCommand(2, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 2"><span class="glyphicon glyphicon-pause" /></button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, -5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-backward" /> 3 secs</button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-forward" /> 3 secs</button>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="form-control input-sm" ng-model="newVideoURL" placeholder="Paste Youtube URL" />
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="changeVideoURL()" ng-disabled="newVideoURL == '' || changingVideoURL">Change video</button>
-                    </div>
-                </form>
-			</div>
-        </div>
-        <div class="row">
-            <div class="col-md-6">
-                <h2>Users ({{users.length}})</h2>
+                <h2 style="margin-top: 30px">Users ({{users.length}})</h2>
                 <div class="bordered" style="height: 200px; overflow-y: scroll">
                     <table class="table table-bordered table-condensed">
                         <tr>
@@ -671,8 +667,89 @@
                         </tr>
                     </table>
                 </div>
+                <h2 style="margin-top: 30px">TO-DO</h2>
+                <ul>
+                    <li>Add player timeline</li>
+                    <li>Improve synchronization</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h2>Change your name ({{currentUser.username}})</h2>
+                <form class="form-inline" style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <input type="text" class="form-control input-sm" ng-model="currentUser.newUsername" placeholder="New name" />
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">Set</button>
+                    </div>
+                </form>
+                
+                <h2>Copy link and invite people</h2>
+                <form style="margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <input type="text" class="form-control input-sm" ng-model="url" ng-readonly="true" />
+                    </div>
+                </form>
+                
+                <h2>Player</h2>
+                <div style="pointer-events: none; cursor: not-allowed" popover="Use the controls below" popover-trigger="mouseenter">
+                    <youtube-video video-url="lastPlayerInfo.videoURL" player="player" player-vars="playerVars" player-width="'100%'" player-height="'300px'"></youtube-video>
+                </div>
+                                
+                <form class="form-inline" style="text-align: center; margin-top: 15px" ng-show="logged">
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 1"><span class="glyphicon glyphicon-play" /></button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(2, 0)" ng-disabled="sendingCommand" ng-hide="playerInfo.state == 2"><span class="glyphicon glyphicon-pause" /></button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, -5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-backward" /> 3 secs</button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-forward" /> 3 secs</button>
+                    </div>
+                </form>
+                <h2 style="margin-top: 30px">Change video</h2>
+                <tabset>
+                    <tab>
+                        <tab-heading>Paste URL</tab-heading>
+                        <form class="form-inline" style="margin-top: 15px; margin-bottom: 200px" ng-show="logged">
+                            <div class="form-group">
+                                <input type="text" class="form-control input-sm" ng-model="forms.newVideoURL" placeholder="Paste Youtube URL" />
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-default btn-sm" ng-click="changeVideoURL()" ng-disabled="forms.newVideoURL == '' || changingVideoURL">Change video</button>
+                            </div>
+                        </form>
+                    </tab>
+                    <tab>
+                        <tab-heading>Search</tab-heading>
+                        <form class="form-inline" style="margin-top: 15px" ng-show="logged">
+                            <div class="form-group">
+                                <input type="text" class="form-control input-sm" ng-model="forms.searchQuery" placeholder="Type some keywords" />
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-default btn-sm" ng-click="searchVideos()" ng-disabled="forms.searchQuery == '' || searchingVideos">Search videos</button>
+                            </div>
+                        </form>
+                        
+                        <p style="margin-top: 30px;">Showing {{foundVideos.length}} search results</p>
+                        
+                        <div class="bordered" style="height: 200px; overflow-y: scroll">                           
+                            <table class="table table-bordered" ng-show="foundVideos.length > 0">
+                                <tr ng-repeat="item in foundVideos">
+                                    <td><img ng-src="{{item.snippet.thumbnails['default'].url}}" style="width: 120px" /></td>
+                                    <td><a href ng-click="changeVideoURL(item.id.videoId)">{{item.snippet.title}}{{item.snippet.title == "Deleted video" ? item : ""}}</a></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </tab>
+                </tabset>
             </div>
         </div>
+        
+
         
         <hr />
         <p style="text-align: center;">Developed by <a href="http://www.manger.cl" targer="_blank">manger.cl</a></p>
