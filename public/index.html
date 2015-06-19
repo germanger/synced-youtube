@@ -90,12 +90,61 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.12.1/ui-bootstrap-tpls.min.js"></script>
     <script src="https://cdn.rawgit.com/Luegg/angularjs-scroll-glue/v2.0.4/src/scrollglue.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/angularjs-toaster/0.4.12/toaster.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bower-angular-translate/2.7.1/angular-translate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-translate-storage-cookie/2.7.2/angular-translate-storage-cookie.min.js"></script>
     <script src="https://cdn.socket.io/socket.io-1.3.5.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="https://cdn.rawgit.com/brandly/angular-youtube-embed/master/dist/angular-youtube-embed.min.js"></script>
 
     <script>
-        angular.module('syncedYoutubeApp', ['ui.bootstrap', 'luegg.directives', 'toaster', 'youtube-embed']);
+        angular.module('syncedYoutubeApp', [
+        'ui.bootstrap',
+        'luegg.directives',
+        'toaster',
+        'youtube-embed',
+        'pascalprecht.translate']);
+        
+        angular.module('syncedYoutubeApp').config(['$translateProvider', function($translateProvider) {
+            $translateProvider.translations('en', {
+                'Showing n results': 'Showing {{count}} results',
+                'username connected': '{{username}} connected',
+                'username disconnected': '{{username}} disconnected',
+                'username cleared messages': '{{username}} cleared messages',
+                'username changed video URL': '{{username}} changed video URL',
+                'oldUsername is now newUsername': '{{oldUsername}} is now {{newUsername}}',
+            });
+            
+            $translateProvider.translations('es', {
+                'Watch a youtube video with your friends at the same time': 'Mira un video de youtube con tus amigos al mismo tiempo',
+                'The code is available at': 'El código está disponible en',
+                'Messages': 'Mensajes',
+                'Users': 'Usuarios',
+                'Change your name': 'Cambia tu nombre',
+                'Copy link and invite people': 'Copia el link e invita gente',
+                'Player': 'Reproductor',
+                'Change video': 'Cambiar video',
+                'Paste URL': 'Pegar URL',
+                'Search': 'Buscar',
+                'Send': 'Enviar',
+                'Set': 'Aplicar',
+                'Clear messages': 'Limpiar mensajes',
+                'says': 'dice',
+                'typing...': 'escribiendo...',
+                'TO-DO': 'Por hacer',
+                'Showing n results': 'Mostrando {{count}} resultados',
+                'username connected': 'Se conectó {{username}}',
+                'username disconnected': 'Se desconectó {{username}}',
+                'username cleared messages': '{{username}} limpió los mensajes',
+                'username changed video URL': '{{username}} cambió el video',
+                'oldUsername is now newUsername': '{{oldUsername}} ahora es {{newUsername}}',
+                'New name': 'Nuevo nombre',
+                'Type some keywords': 'Escribe qué buscar',
+                'Developed by': 'Desarrollado por',
+            });
+
+            $translateProvider.preferredLanguage('en');
+            //$translateProvider.useCookieStorage();
+        }]);
                 
         angular.module('syncedYoutubeApp').directive('ngEnter', function () {
             return function (scope, element, attrs) {
@@ -111,7 +160,7 @@
             };
         });
         
-        angular.module('syncedYoutubeApp').controller('mainController', ['$scope', '$http', '$window', 'toaster', '$interval', '$location', function ($scope, $http, $window, toaster, $interval, $location) {
+        angular.module('syncedYoutubeApp').controller('mainController', ['$scope', '$http', '$window', 'toaster', '$interval', '$location', '$translate', function ($scope, $http, $window, toaster, $interval, $location, $translate) {
 
             $scope.url = "";
             $scope.socket = null;
@@ -142,6 +191,12 @@
             };
             
             var timeChecker;
+            
+            $scope.currentLanguage = $translate.use();
+            
+            $scope.setLanguage = function() {
+                $translate.use($scope.currentLanguage);
+            };
             
             $scope.searchVideos = function () {
                 $scope.searchingVideos = true;
@@ -596,41 +651,47 @@
         <div class="row">
             <div class="col-md-6">
                 <h1>Synced youtube player</h1>
+                <form class="form-inline pull-right">
+                    <select class="form-control" ng-model="currentLanguage" ng-change="setLanguage()">
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                    </select>
+                </form>
                 <p>
-                    Watch a youtube video with your friends at the same time.<br />
-                    The code is available at <a href="https://github.com/germanger/synced-youtube" target="_blank">GitHub</a>
+                    {{ 'Watch a youtube video with your friends at the same time' | translate }}.<br />
+                    {{ 'The code is available at' | translate }} <a href="https://github.com/germanger/synced-youtube" target="_blank">GitHub</a>
                 </p>
                 
-                <h2>Messages ({{messages.length}})</h2>
+                <h2>{{ 'Messages' | translate }} ({{messages.length}})</h2>
                 <div class="bordered" style="height: 200px; overflow-y: scroll" scroll-glue>
                     <table class="table table-bordered table-condensed">
                         <tr ng-repeat="message in messages">
                             <td>
                                 <div ng-switch="message.messageType">
                                     <div ng-switch-when="userBroadcastsMessage">
-                                        <strong>{{message.user.username || message.user.userId}}</strong> says:<br />
+                                        <strong>{{message.user.username || message.user.userId}}</strong> {{ 'says' | translate }}:<br />
                                         <p>{{message.chatMessage.body}}</p>
                                     </div>
                                     <div ng-switch-when="userConnected">
-                                        <strong style="color: #FFAF99">{{message.user.username}} connected</strong>
+                                        <strong style="color: #FFAF99">{{ 'username connected' | translate:{ username: message.user.username } }}</strong>
                                     </div>
                                     <div ng-switch-when="userDisconnected">
-                                        <strong style="color: #FFAF99">{{message.user.username}} disconnected</strong>
+                                        <strong style="color: #FFAF99">{{ 'username disconnected' | translate:{ username: message.user.username } }}</strong>
                                     </div>
                                     <div ng-switch-when="userChangedName">
-                                        <strong style="color: #FFAF99">{{message.data.oldUsername}} is now {{message.data.newUsername}}</strong>
+                                        <strong style="color: #FFAF99">{{ 'oldUsername is now newUsername' | translate:{ oldUsername: message.data.oldUsername, newUsername: message.data.newUsername } }}</strong>
                                     </div>
                                     <div ng-switch-when="userChangedVideoURL">
-                                        <strong style="color: #FFAF99">{{message.user.username}} changed video URL</strong>
+                                        <strong style="color: #FFAF99">{{ 'username changed video URL' | translate:{ username: message.user.username } }}</strong>
                                     </div>
                                     <!--<div ng-switch-when="userChangedPlayerState">
                                         <strong style="color: #FFAF99">{{message.user.username}}'s player new state: {{message.user.playerState == 2 ? "Paused" : message.user.playerState == 1 ? "Playing" : "" }}</strong>
                                     </div>-->
                                     <div ng-switch-when="userSentCommand">
-                                        <strong style="color: #FFAF99">{{message.user.username}} clicked {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
+                                         <strong style="color: #FFAF99">{{message.user.username}} clicked {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
                                     </div>
                                     <div ng-switch-when="userClearedMessages">
-                                        <strong style="color: #FFAF99">{{message.user.username}} cleared messages</strong>
+                                        <strong style="color: #FFAF99">{{ 'username cleared messages' | translate:{ username: message.user.username } }}</strong>
                                     </div>
                                 </div>
                             </td>
@@ -644,13 +705,13 @@
                 </form>
                 <form class="form-inline" ng-show="logged">
                     <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="submitMessage()" ng-disabled="sendingMessage">Send</button>
+                        <button class="btn btn-default btn-sm" ng-click="submitMessage()" ng-disabled="sendingMessage">{{ 'Send' | translate }}</button>
                     </div>
                     <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="clearMessages()" ng-disabled="clearingMessages">Clear messages</button>
+                        <button class="btn btn-default btn-sm" ng-click="clearMessages()" ng-disabled="clearingMessages">{{ 'Clear messages' | translate }}</button>
                     </div>
                 </form>
-                <h2 style="margin-top: 30px">Users ({{users.length}})</h2>
+                <h2 style="margin-top: 30px">{{ 'Users' | translate }} ({{users.length}})</h2>
                 <div class="bordered" style="height: 200px; overflow-y: scroll">
                     <table class="table table-bordered table-condensed">
                         <tr>
@@ -663,35 +724,35 @@
                             <td>{{user.userId}}</td>
                             <td>{{user.username}}</td>
                             <td>{{user.playerState == 2 ? "Paused" : user.playerState == 1 ? "Playing" : "" }}</td>
-                            <td><span ng-show="user.isTyping">typing...</span></td>
+                            <td><span ng-show="user.isTyping">{{ 'typing...' | translate }}</span></td>
                         </tr>
                     </table>
                 </div>
-                <h2 style="margin-top: 30px">TO-DO</h2>
+                <h2 style="margin-top: 30px">{{ 'TO-DO' | translate }}</h2>
                 <ul>
                     <li>Add player timeline</li>
                     <li>Improve synchronization</li>
                 </ul>
             </div>
             <div class="col-md-6">
-                <h2>Change your name ({{currentUser.username}})</h2>
+                <h2>{{ 'Change your name' | translate }} ({{currentUser.username}})</h2>
                 <form class="form-inline" style="margin-top: 15px" ng-show="logged">
                     <div class="form-group">
-                        <input type="text" class="form-control input-sm" ng-model="currentUser.newUsername" placeholder="New name" />
+                        <input type="text" class="form-control input-sm" ng-model="currentUser.newUsername" placeholder="{{ 'New name' | translate }}" />
                     </div>
                     <div class="form-group">
-                        <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">Set</button>
+                        <button class="btn btn-default btn-sm" ng-click="changeName()" ng-disabled="username == '' || changingName">{{ 'Set' | translate }}</button>
                     </div>
                 </form>
                 
-                <h2>Copy link and invite people</h2>
+                <h2>{{ 'Copy link and invite people' | translate }}</h2>
                 <form style="margin-top: 15px" ng-show="logged">
                     <div class="form-group">
                         <input type="text" class="form-control input-sm" ng-model="url" ng-readonly="true" />
                     </div>
                 </form>
                 
-                <h2>Player</h2>
+                <h2>{{ 'Player' | translate }}</h2>
                 <div style="pointer-events: none; cursor: not-allowed" popover="Use the controls below" popover-trigger="mouseenter">
                     <youtube-video video-url="lastPlayerInfo.videoURL" player="player" player-vars="playerVars" player-width="'100%'" player-height="'300px'"></youtube-video>
                 </div>
@@ -710,31 +771,31 @@
                         <button class="btn btn-default btn-sm" ng-click="submitCommand(1, 5)" ng-disabled="sendingCommand"><span class="glyphicon glyphicon-forward" /> 3 secs</button>
                     </div>
                 </form>
-                <h2 style="margin-top: 30px">Change video</h2>
+                <h2 style="margin-top: 30px">{{ 'Change video' | translate }}</h2>
                 <tabset>
                     <tab>
-                        <tab-heading>Paste URL</tab-heading>
+                        <tab-heading>{{ 'Paste URL' | translate }}</tab-heading>
                         <form class="form-inline" style="margin-top: 15px; margin-bottom: 200px" ng-show="logged">
                             <div class="form-group">
-                                <input type="text" class="form-control input-sm" ng-model="forms.newVideoURL" placeholder="Paste Youtube URL" />
+                                <input type="text" class="form-control input-sm" ng-model="forms.newVideoURL" placeholder="{{ 'Paste URL' | translate }}" />
                             </div>
                             <div class="form-group">
-                                <button class="btn btn-default btn-sm" ng-click="changeVideoURL()" ng-disabled="forms.newVideoURL == '' || changingVideoURL">Change video</button>
+                                <button class="btn btn-default btn-sm" ng-click="changeVideoURL()" ng-disabled="forms.newVideoURL == '' || changingVideoURL">{{ 'Change video' | translate }}</button>
                             </div>
                         </form>
                     </tab>
                     <tab>
-                        <tab-heading>Search</tab-heading>
+                        <tab-heading>{{ 'Search' | translate }}</tab-heading>
                         <form class="form-inline" style="margin-top: 15px" ng-show="logged">
                             <div class="form-group">
-                                <input type="text" class="form-control input-sm" ng-model="forms.searchQuery" placeholder="Type some keywords" />
+                                <input type="text" class="form-control input-sm" ng-model="forms.searchQuery" placeholder="{{ 'Type some keywords' | translate }}" />
                             </div>
                             <div class="form-group">
-                                <button class="btn btn-default btn-sm" ng-click="searchVideos()" ng-disabled="forms.searchQuery == '' || searchingVideos">Search videos</button>
+                                <button class="btn btn-default btn-sm" ng-click="searchVideos()" ng-disabled="forms.searchQuery == '' || searchingVideos">{{ 'Search' | translate }}</button>
                             </div>
                         </form>
                         
-                        <p style="margin-top: 30px;">Showing {{foundVideos.length}} search results</p>
+                        <p style="margin-top: 30px;">{{ 'Showing n results' | translate:{count: foundVideos.length} }}</p>
                         
                         <div class="bordered" style="height: 200px; overflow-y: scroll">                           
                             <table class="table table-bordered" ng-show="foundVideos.length > 0">
@@ -752,7 +813,7 @@
 
         
         <hr />
-        <p style="text-align: center;">Developed by <a href="http://www.manger.cl" targer="_blank">manger.cl</a></p>
+        <p style="text-align: center;">{{ 'Developed by' | translate }} <a href="http://www.manger.cl" targer="_blank">manger.cl</a></p>
         
         <toaster-container toaster-options="{'time-out': 3000, 'close-button': true, 'position-class': 'toast-bottom-right'}"></toaster-container>
     </div>
