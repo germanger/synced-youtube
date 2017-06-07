@@ -43,3 +43,7 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 - Player's timeline control
 - Player's volume control
 - Player's currentTime/totalTime indicator
+
+## Screenshot
+
+![Screenshot](https://raw.githubusercontent.com/germanger/synced-youtube/master/screenshot.png)
