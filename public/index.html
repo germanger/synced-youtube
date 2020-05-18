@@ -688,7 +688,7 @@
                                         <strong style="color: #FFAF99">{{message.user.username}}'s player new state: {{message.user.playerState == 2 ? "Paused" : message.user.playerState == 1 ? "Playing" : "" }}</strong>
                                     </div>-->
                                     <div ng-switch-when="userSentCommand">
-                                         <strong style="color: #FFAF99">{{message.user.username}} clicked {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time}} seconds</strong>
+                                         <strong style="color: #FFAF99">{{message.user.username}} clicked {{message.player.state == 2 ? "Pause" : "Play"}}, at: {{message.player.time | number: 2}} seconds</strong>
                                     </div>
                                     <div ng-switch-when="userClearedMessages">
                                         <strong style="color: #FFAF99">{{ 'username cleared messages' | translate:{ username: message.user.username } }}</strong>
