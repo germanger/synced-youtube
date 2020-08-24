@@ -4,6 +4,12 @@ A synced multiuser youtube player
 ## Demo
 The master branch is directly deployed to heroku: https://synced-youtube.herokuapp.com/
 
+## Installation
+
+1. Run `npm-install`
+2. Run `node app.js`
+3. Go to http://localhost:3000
+
 ## Server side
 
 - Node.JS
@@ -28,11 +34,14 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 
 ## Client side
 
-- Angular
-- Angular's Boostrap UI
+The following scripts are referenced directly in public/index.html
+
+- Angularjs 1.3.14
+- Angular's Boostrap UI 0.12.1
+- Bootstrap CSS 3.3.4
 - HTML 5 (canvas)
-- socket.io
-- toaster (notifications)
+- socket.io 1.3.5
+- toaster (notifications) 0.4.12
 - scrollglue (scroll to bottom of divs)
 - Youtube player API ("iframe_api")
 - angular-youtube-embed (angular directive for iframe_api)
@@ -43,3 +52,7 @@ The master branch is directly deployed to heroku: https://synced-youtube.herokua
 - Player's timeline control
 - Player's volume control
 - Player's currentTime/totalTime indicator
+
+## Screenshot
+
+![Screenshot](https://raw.githubusercontent.com/germanger/synced-youtube/master/screenshot.png)
